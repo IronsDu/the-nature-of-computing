@@ -144,9 +144,13 @@ static std::vector< InputType> convertStringToInputs(std::string str) {
 int main()
 {
 	std::vector<FARule> rules = {
-		{0, 'a', 1},// 状态0下接受到'a'则转移到状态1
-		{1, 'b', 2} ,// 状态1下接受到'b'则转移到状态2
-		{0, 'c', 1} };// 状态0下接受到'c'则转移到状态1
+		{0, 'a', 1},	// 状态0下若接受到'a'则转移到状态1
+		{0, 'b', 2} ,
+		{0, 'c', 1} ,
+		{1, 'a', 2} ,
+		{1, 'b', 2} ,
+		{1, 'c', 2} ,
+	};
 	AcceptStates acceptState({ 2 });
 
 	DFA dfa(rules, acceptState);
