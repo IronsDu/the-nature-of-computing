@@ -1,12 +1,13 @@
-﻿#include <optional>
+﻿#pragma once
+
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
-using namespace std;
 
-using State = int;
+using State = std::string;
 using InputType = char;
 
 // 有限状态机（状态转移）规则
@@ -31,7 +32,7 @@ public:
         return _input;
     }
 
-    const int& nextState() const
+    const auto& nextState() const
     {
         return _nextState;
     }
@@ -72,8 +73,9 @@ private:
 class DFA
 {
 public:
-    DFA(std::vector<FARule> rules, AcceptStates acceptStates)
-        : _rules(std::move(rules)),
+    DFA(State initialState, std::vector<FARule> rules, AcceptStates acceptStates)
+        : _initialState(initialState),
+          _rules(std::move(rules)),
           _acceptStates(std::move(acceptStates))
     {}
 
@@ -92,7 +94,7 @@ public:
         for (const auto& rule : _rules)
         {
             auto& transform = stateRelation[rule.startState()];
-            if (transform.find(rule.input()) != transform.end())
+            if (transform.contains(rule.input()))
             {
                 // 存在重复的状态转移 [startState, input]
                 return false;
@@ -104,10 +106,20 @@ public:
             inputSet.insert(rule.input());
         }
 
+        if (!stateSet.contains(_initialState))
+        {
+            // 如果起始状态没在状态集合中则返回false
+            return false;
+        }
+
         // 检测状态转移是否满足DFA定义的约束，即满足(状态,输入)的任意组合都有且只有一个规则。
         for (auto state : stateSet)
         {
-            auto it = stateRelation.find(state);
+            if (_acceptStates.accept(state))
+            {
+                continue;
+            }
+            const auto it = stateRelation.find(state);
             if (it == stateRelation.end())
             {
                 // 找不到以某状态作为开始的状态转移
@@ -117,8 +129,7 @@ public:
 
             for (const auto& input : inputSet)
             {
-                auto it = transform.find(input);
-                if (it == transform.end())
+                if (!transform.contains(input))
                 {
                     // 在当前开始状态下没有找到针对某个输入符号的状态转移
                     return false;
@@ -142,9 +153,9 @@ public:
     }
 
     // 判断从初始状态开始，此FA是否接受输入序列
-    bool accept(const State initialState, const std::vector<InputType>& inputs) const
+    bool accept(const std::vector<InputType>& inputs) const
     {
-        auto currentState = initialState;
+        auto currentState = _initialState;
         for (const auto& currentInput : inputs)
         {
             auto matchRule = _accept(currentState, currentInput);
@@ -182,6 +193,7 @@ private:
         return std::nullopt;
     }
 
+    const State _initialState;
     const std::vector<FARule> _rules;
     const AcceptStates _acceptStates;
 };
@@ -194,24 +206,4 @@ static std::vector<InputType> convertStringToInputs(const std::string& str)
         inputs.push_back(c);
     }
     return inputs;
-}
-
-int main()
-{
-    std::vector<FARule> const rules = {
-            {0, 'a', 1},// 状态0下若接受到'a'则转移到状态1
-            {0, 'b', 2},
-            {0, 'c', 1},
-            {1, 'a', 2},
-            {1, 'b', 2},
-            {1, 'c', 2},
-    };
-    AcceptStates const acceptState({2});
-
-    DFA const dfa(rules, acceptState);
-
-    auto isValid = dfa.valid();
-    auto isAccepted = dfa.accept(0, convertStringToInputs("ac"));
-
-    return 0;
 }
