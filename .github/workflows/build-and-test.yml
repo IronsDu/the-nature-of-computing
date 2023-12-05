@@ -1,0 +1,42 @@
+name: build-and-test
+
+on: [push]
+
+jobs:
+  msvc:
+    name: ${{ matrix.os }}.${{ matrix.build_type }}.${{ matrix.lib }}.${{ matrix.msvc }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+        run:
+            shell: powershell
+    strategy:
+      fail-fast: false
+      matrix:
+        msvc:
+          - VS-17-2022
+        arch:
+          - Win32
+          - x64
+        build_type:
+          - Debug
+          - Release
+        include:
+          - msvc: VS-17-2022
+            os: windows-2022
+            generator: 'Visual Studio 17 2022'
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
+
+      - name: Configure CMake
+        run: >
+          cmake -S . -B _build/
+          -A ${{ matrix.arch }}
+          -G "${{ matrix.generator }}"
+      - name: Build
+        run: cmake --build _build/ --config ${{ matrix.build_type }}
+      - name: Test
+        run: ctest --test-dir _build/tests -C ${{ matrix.build_type }} -VV
