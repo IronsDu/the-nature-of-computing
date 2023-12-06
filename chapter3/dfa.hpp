@@ -38,7 +38,7 @@ public:
     }
 
     // 判断某开始状态和输入是否匹配此规则，匹配则表示接受
-    bool accept(State currentState, InputType input) const
+    bool accept(const State& currentState, InputType input) const
     {
         return _startState == currentState && _input == input;
     }
@@ -60,9 +60,9 @@ public:
         : _acceptStateSet(std::move(acceptStateSet))
     {}
 
-    bool accept(State state) const
+    bool accept(const State& state) const
     {
-        return _acceptStateSet.find(state) != _acceptStateSet.end();
+        return _acceptStateSet.contains(state);
     }
 
 private:
