@@ -4,9 +4,8 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-using namespace std;
 
-using State = int;
+using State = std::string;
 using InputType = char;
 
 // 有限状态机（状态转移）规则
@@ -32,7 +31,7 @@ public:
         return _input;
     }
 
-    const int& nextState() const
+    const auto& nextState() const
     {
         return _nextState;
     }
@@ -40,7 +39,7 @@ public:
     // 判断某开始状态和输入是否匹配此规则，匹配则表示接受
     bool accept(State currentState, std::optional<InputType> input) const
     {
-        return _startState == currentState && (_input == std::nullopt || _input == input);
+        return _startState == currentState && _input == input;
     }
 
 private:
@@ -60,9 +59,9 @@ public:
         : _acceptStateSet(std::move(acceptStateSet))
     {}
 
-    bool accept(State state) const
+    bool accept(const State& state) const
     {
-        return _acceptStateSet.find(state) != _acceptStateSet.end();
+        return _acceptStateSet.contains(state);
     }
 
 private:
@@ -72,15 +71,16 @@ private:
 class NFA
 {
 public:
-    NFA(std::vector<FARule> rules, AcceptStates acceptStates)
-        : _rules(std::move(rules)),
+    NFA(State initialState, std::vector<FARule> rules, AcceptStates acceptStates)
+        : _initialState(initialState),
+          _rules(std::move(rules)),
           _acceptStates(std::move(acceptStates))
     {}
 
-    bool accept(const State initialState, std::list<InputType> inputs) const
+    bool accept(std::list<InputType> inputs) const
     {
         // 收集当前起始状态下空输入能满足的规则
-        auto matchRules = _matchRules(initialState, std::nullopt);
+        auto matchRules = _matchRules(_initialState, std::nullopt);
 
         if (inputs.empty())
         {
@@ -98,15 +98,15 @@ public:
         for (auto rule : matchRules)
         {
             // 以空输入匹配的规则的转移状态为起始状态派生新的NFA，尝试判断新的NFA是否接受输入
-            NFA const subNfa(_rules, _acceptStates);
-            if (subNfa.accept(rule.nextState(), inputs))
+            NFA const subNfa(rule.nextState(), _rules, _acceptStates);
+            if (subNfa.accept(inputs))
             {
                 return true;
             }
         }
 
         // 收集当前起始状态下，第一个符号所能匹配的规则
-        matchRules = _matchRules(initialState, inputs.front());
+        matchRules = _matchRules(_initialState, inputs.front());
         // 去掉开始符号，用于构造新的NFA输入
         inputs.pop_front();
 
@@ -124,8 +124,8 @@ public:
         for (auto rule : matchRules)
         {
             // 派生新的NFA，尝试判断新的NFA是否接受输入
-            NFA const subNfa(_rules, _acceptStates);
-            if (subNfa.accept(rule.nextState(), inputs))
+            NFA const subNfa(rule.nextState(), _rules, _acceptStates);
+            if (subNfa.accept(inputs))
             {
                 return true;
             }
@@ -156,6 +156,8 @@ private:
         return nextRules;
     }
 
+private:
+    State _initialState;
     const std::vector<FARule> _rules;
     const AcceptStates _acceptStates;
 };
@@ -169,24 +171,4 @@ static std::list<InputType> convertStringToInputs(const std::string& str)
         inputs.push_back(c);
     }
     return inputs;
-}
-
-int main()
-{
-    std::vector<FARule> const rules = {
-            {0, 'a', 1},// 状态0下若接受到'a'则转移到状态1
-            {0, 'b', 2},
-            {0, 'c', 1},
-            {1, 'a', 2},
-            {1, 'b', 2},
-            {1, 'c', 2},
-    };
-    AcceptStates const acceptState({2});
-
-    NFA const nfa(rules, acceptState);
-
-    auto isAccepted = nfa.accept(0, convertStringToInputs("ab"));
-    isAccepted = nfa.accept(0, convertStringToInputs("ad"));
-
-    return 0;
 }
