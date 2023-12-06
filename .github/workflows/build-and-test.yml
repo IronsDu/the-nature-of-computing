@@ -39,4 +39,4 @@ jobs:
       - name: Build
         run: cmake --build _build/ --config ${{ matrix.build_type }}
       - name: Test
-        run: ctest --test-dir _build/tests -C ${{ matrix.build_type }} -VV
+        run: ctest --test-dir _build/chapter3 -C ${{ matrix.build_type }} -VV
