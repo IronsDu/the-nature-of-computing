@@ -237,10 +237,7 @@ static void convertNFA2DFA(const NFA& nfa)
         auto initialStateTarget = nfa.getEmptyInputTargetState(initialState);
 
         newInitialStateSet.insert(initialState);
-        for (const auto& s : initialStateTarget)
-        {
-            newInitialStateSet.insert(s);
-        }
+        newInitialStateSet.insert(initialStateTarget.begin(), initialStateTarget.end());
         newInitialState = convertCombStateToString(newInitialStateSet);
     }
 
@@ -250,6 +247,8 @@ static void convertNFA2DFA(const NFA& nfa)
     {
         stateList.push_back(state);
     }
+
+    std::unordered_set<State> acceptedState;
 
     std::vector<FARule> rules;
     // 计算状态的排列组合，计算每一个组合状态集在一些输入下将转移到的状态集
@@ -269,10 +268,7 @@ static void convertNFA2DFA(const NFA& nfa)
                 const auto& transform = transformRelation.at(s);
                 for (const auto& [input, stateSet] : transform)
                 {
-                    for (const auto& s : stateSet)
-                    {
-                        combTransform[input].insert(s);
-                    }
+                    combTransform[input].insert(stateSet.begin(), stateSet.end());
                 }
             }
 
@@ -282,6 +278,21 @@ static void convertNFA2DFA(const NFA& nfa)
             {
                 auto newNextState = convertCombStateToString(nextStateSet);
                 rules.push_back(FARule(newState, input, newNextState));
+            }
+
+            // 判断当前状态集中是否存在NFA中的终止状态，若存在，则将状态组合的新状态添加到新的终止状态集合
+            bool isAccepted = false;
+            for (const auto& s : stateComb)
+            {
+                if (nfa.getAcceptStates().accept(s))
+                {
+                    isAccepted = true;
+                    break;
+                }
+            }
+            if (isAccepted)
+            {
+                acceptedState.insert(newState);
             }
         }
     }
