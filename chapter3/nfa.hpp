@@ -79,22 +79,13 @@ public:
 
     bool accept(std::list<InputType> inputs) const
     {
-        // 收集当前起始状态下空输入能满足的规则
-        auto matchRules = _matchRules(_initialState, std::nullopt);
-
-        if (inputs.empty())
+        if (inputs.empty() && _acceptStates.accept(_initialState))
         {
-            // 当输入为空时，直接判断采用空输入匹配的规则是否有处于接受状态
-            for (auto rule : matchRules)
-            {
-                if (_acceptStates.accept(rule.nextState()))
-                {
-                    return true;
-                }
-            }
-            return false;
+            return true;
         }
 
+        // 收集当前起始状态下空输入能满足的规则
+        auto matchRules = _matchRules(_initialState, std::nullopt);
         for (auto rule : matchRules)
         {
             // 以空输入匹配的规则的转移状态为起始状态派生新的NFA，尝试判断新的NFA是否接受输入
@@ -105,29 +96,21 @@ public:
             }
         }
 
-        // 收集当前起始状态下，第一个符号所能匹配的规则
-        matchRules = _matchRules(_initialState, inputs.front());
-        // 去掉开始符号，用于构造新的NFA输入
-        inputs.pop_front();
-
-        if (inputs.empty())
+        if (!inputs.empty())
         {
+            // 收集当前起始状态下，第一个符号所能匹配的规则
+            matchRules = _matchRules(_initialState, inputs.front());
+            // 去掉开始符号，以剩下的输入构造新的NFA输入
+            inputs.pop_front();
+
             for (auto rule : matchRules)
             {
-                if (_acceptStates.accept(rule.nextState()))
+                // 派生新的NFA，尝试判断新的NFA是否接受输入
+                NFA const subNfa(rule.nextState(), _rules, _acceptStates);
+                if (subNfa.accept(inputs))
                 {
                     return true;
                 }
-            }
-        }
-
-        for (auto rule : matchRules)
-        {
-            // 派生新的NFA，尝试判断新的NFA是否接受输入
-            NFA const subNfa(rule.nextState(), _rules, _acceptStates);
-            if (subNfa.accept(inputs))
-            {
-                return true;
             }
         }
 
@@ -141,13 +124,6 @@ private:
         std::vector<FARule> nextRules;
         for (const auto& rule : _rules)
         {
-            if (rule.startState() != currentState)
-            {
-                // 如果规则开始状态不是当前状态，则跳过此规则
-                // 注意：理论上可以不进行此判断，因为下面的rule.accept自然也会判断
-                continue;
-            }
-
             if (rule.accept(currentState, input))
             {
                 nextRules.push_back(rule);
@@ -157,7 +133,7 @@ private:
     }
 
 private:
-    State _initialState;
+    const State _initialState;
     const std::vector<FARule> _rules;
     const AcceptStates _acceptStates;
 };
