@@ -2,8 +2,9 @@
 #include "catch2/catch.hpp"
 #include "fa_common.hpp"
 #include "nfa.hpp"
+#include "nfa2dfa.hpp"
 
-TEST_CASE("Test NFA", "[Test NFA]")
+TEST_CASE("Test NFA2DFA", "[Test NFA2DFA]")
 {
     std::vector<NFARule> const rules = {
             {"q0", 'a', "q1"},// 状态0下若接受到'a'则转移到状态1
@@ -17,6 +18,8 @@ TEST_CASE("Test NFA", "[Test NFA]")
 
     NFA const nfa("q0", rules, acceptState);
 
+    auto dfa = nfa2dfa::convertNFA2DFA(nfa);
+
     const std::vector<std::pair<std::string, bool>> tests = {
             {"ab", true},
             {"ad", false},
@@ -24,7 +27,7 @@ TEST_CASE("Test NFA", "[Test NFA]")
 
     for (const auto& [input, expectedAccepted] : tests)
     {
-        const auto isAccepted = nfa.accept(convertStringToInputs(input));
+        const auto isAccepted = dfa.accept(convertStringToInputs(input));
         REQUIRE(expectedAccepted == isAccepted);
     }
 }

@@ -7,15 +7,14 @@
 #include <utility>
 #include <vector>
 
-using State = std::string;
-using InputType = char;
+#include "fa_common.hpp"
 
 // 有限状态机（状态转移）规则
 // 定义某个状态下接收到某个输入时转移到哪个状态
-class FARule
+class DFARule
 {
 public:
-    FARule(State startState, InputType character, State nextState)
+    DFARule(State startState, InputType character, State nextState)
         : _startState(startState),
           _input(character),
           _nextState(nextState)
@@ -53,10 +52,10 @@ private:
 };
 
 // 定义终止状态，即可接受的状态有哪些
-class AcceptStates
+class DFAAcceptStates
 {
 public:
-    AcceptStates(std::unordered_set<State> acceptStateSet)
+    DFAAcceptStates(std::unordered_set<State> acceptStateSet)
         : _acceptStateSet(std::move(acceptStateSet))
     {}
 
@@ -73,7 +72,7 @@ private:
 class DFA
 {
 public:
-    DFA(State initialState, std::vector<FARule> rules, AcceptStates acceptStates)
+    DFA(State initialState, std::vector<DFARule> rules, DFAAcceptStates acceptStates)
         : _initialState(initialState),
           _rules(std::move(rules)),
           _acceptStates(std::move(acceptStates))
@@ -153,7 +152,7 @@ public:
     }
 
     // 判断从初始状态开始，此FA是否接受输入序列
-    bool accept(const std::vector<InputType>& inputs) const
+    bool accept(const std::list<InputType>& inputs) const
     {
         auto currentState = _initialState;
         for (const auto& currentInput : inputs)
@@ -174,7 +173,7 @@ public:
 
 private:
     // 判断以某个状态为开始的规则是否接受输入，若是则返回接受它的规则
-    std::optional<FARule> _accept(const State currentState, const InputType input) const
+    std::optional<DFARule> _accept(const State currentState, const InputType input) const
     {
         for (const auto& rule : _rules)
         {
@@ -194,16 +193,6 @@ private:
     }
 
     const State _initialState;
-    const std::vector<FARule> _rules;
-    const AcceptStates _acceptStates;
+    const std::vector<DFARule> _rules;
+    const DFAAcceptStates _acceptStates;
 };
-
-static std::vector<InputType> convertStringToInputs(const std::string& str)
-{
-    std::vector<InputType> inputs;
-    for (char const c : str)
-    {
-        inputs.push_back(c);
-    }
-    return inputs;
-}

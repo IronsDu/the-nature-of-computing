@@ -1,20 +1,21 @@
-﻿#include <list>
+﻿#pragma once
+
+#include <list>
 #include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-using State = std::string;
-using InputType = char;
+#include "fa_common.hpp"
 
 // 有限状态机（状态转移）规则
 // 定义某个状态下接收到某个输入时转移到哪个状态
 // 因为用于实现NFA，所以输入允许为空
-class FARule
+class NFARule
 {
 public:
-    FARule(State startState, std::optional<InputType> character, State nextState)
+    NFARule(State startState, std::optional<InputType> character, State nextState)
         : _startState(startState),
           _input(character),
           _nextState(nextState)
@@ -52,10 +53,10 @@ private:
 };
 
 // 定义终止状态，即可接受的状态有哪些
-class AcceptStates
+class NFAAcceptStates
 {
 public:
-    AcceptStates(std::unordered_set<State> acceptStateSet)
+    NFAAcceptStates(std::set<State> acceptStateSet)
         : _acceptStateSet(std::move(acceptStateSet))
     {}
 
@@ -64,19 +65,19 @@ public:
         return _acceptStateSet.contains(state);
     }
 
-    const std::unordered_set<State>& getAcceptStateSet() const
+    const std::set<State>& getAcceptStateSet() const
     {
         return _acceptStateSet;
     }
 
 private:
-    const std::unordered_set<State> _acceptStateSet;
+    const std::set<State> _acceptStateSet;
 };
 
 class NFA
 {
 public:
-    NFA(State initialState, std::vector<FARule> rules, AcceptStates acceptStates)
+    NFA(State initialState, std::vector<NFARule> rules, NFAAcceptStates acceptStates)
         : _initialState(initialState),
           _rules(std::move(rules)),
           _acceptStates(std::move(acceptStates))
@@ -87,7 +88,7 @@ public:
         return _initialState;
     }
 
-    const AcceptStates& getAcceptStates() const
+    const NFAAcceptStates& getAcceptStates() const
     {
         return _acceptStates;
     }
@@ -181,9 +182,9 @@ public:
 
 private:
     // 返回满足当前状态和输入的规则列表
-    std::vector<FARule> _matchRules(const State currentState, const std::optional<InputType> input) const
+    std::vector<NFARule> _matchRules(const State currentState, const std::optional<InputType> input) const
     {
-        std::vector<FARule> nextRules;
+        std::vector<NFARule> nextRules;
         for (const auto& rule : _rules)
         {
             if (rule.accept(currentState, input))
@@ -196,104 +197,6 @@ private:
 
 private:
     const State _initialState;
-    const std::vector<FARule> _rules;
-    const AcceptStates _acceptStates;
+    const std::vector<NFARule> _rules;
+    const NFAAcceptStates _acceptStates;
 };
-
-
-static std::list<InputType> convertStringToInputs(const std::string& str)
-{
-    std::list<InputType> inputs;
-    for (char const c : str)
-    {
-        inputs.push_back(c);
-    }
-    return inputs;
-}
-
-// 将一个状态组合转换为一个字符串，通常，这个字符串作为构造新的状态机中的新状态
-static std::string convertCombStateToString(std::set<State> stateSet)
-{
-    std::string str;
-    // 必须依靠稳定顺序
-    for (const auto& s : stateSet)
-    {
-        str += s;
-    }
-    return str;
-}
-
-static void convertNFA2DFA(const NFA& nfa)
-{
-    // 获取NFA的状态转移表
-    const auto transformRelation = nfa.getTransformRelation();
-
-    // 新的起始状态
-    State newInitialState;
-    {
-        // 获取NFA的起始状态，以及获取此起始状态在空输入下所能达到的状态
-        std::set<State> newInitialStateSet;
-        auto initialState = nfa.getTnitialState();
-        auto initialStateTarget = nfa.getEmptyInputTargetState(initialState);
-
-        newInitialStateSet.insert(initialState);
-        newInitialStateSet.insert(initialStateTarget.begin(), initialStateTarget.end());
-        newInitialState = convertCombStateToString(newInitialStateSet);
-    }
-
-    // 从状态转移表中构造状态顺序表，用于后续的状态组合
-    std::vector<State> stateList;
-    for (const auto& [state, _] : transformRelation)
-    {
-        stateList.push_back(state);
-    }
-
-    std::unordered_set<State> acceptedState;
-
-    std::vector<FARule> rules;
-    // 计算状态的排列组合，计算每一个组合状态集在一些输入下将转移到的状态集
-    // 状态集都将转换为字符串，作为新的状态机的状态，并以此构造新的转换规则
-    for (int i = 0; i < stateList.size(); i++)
-    {
-        std::set<State> stateComb;
-        for (int j = i; j < stateList.size(); j++)
-        {
-            // 构造状态组合，作为起始状态集
-            stateComb.insert(stateList[j]);
-
-            // 计算此状态组合在一些输入下所能达到的状态集合
-            std::map<InputType, std::set<State>> combTransform;
-            for (const auto& s : stateComb)
-            {
-                const auto& transform = transformRelation.at(s);
-                for (const auto& [input, stateSet] : transform)
-                {
-                    combTransform[input].insert(stateSet.begin(), stateSet.end());
-                }
-            }
-
-            // 使用起始状态集何输入以及转移的目标状态集构造新的DFA中的规则
-            auto newState = convertCombStateToString(stateComb);
-            for (const auto& [input, nextStateSet] : combTransform)
-            {
-                auto newNextState = convertCombStateToString(nextStateSet);
-                rules.push_back(FARule(newState, input, newNextState));
-            }
-
-            // 判断当前状态集中是否存在NFA中的终止状态，若存在，则将状态组合的新状态添加到新的终止状态集合
-            bool isAccepted = false;
-            for (const auto& s : stateComb)
-            {
-                if (nfa.getAcceptStates().accept(s))
-                {
-                    isAccepted = true;
-                    break;
-                }
-            }
-            if (isAccepted)
-            {
-                acceptedState.insert(newState);
-            }
-        }
-    }
-}
