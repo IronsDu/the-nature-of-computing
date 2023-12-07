@@ -15,17 +15,21 @@ static std::string nfa2graphviz(const NFA& nfa)
     auto stateSet = nfa.getStateSet();
     for (const auto& state : stateSet)
     {
-        if (state == initState)
+        if (state == initState && nfa.getAcceptStates().accept(state))
+        {
+            nodes.push_back(std::format("{} [label=<{}>, shape=doublecircle, color=green]", state, state));
+        }
+        else if (state == initState)
         {
             nodes.push_back(std::format("{} [label=<{}>, shape=circle, color=green]", state, state));
         }
-        else if (!nfa.getAcceptStates().accept(state))
+        else if (nfa.getAcceptStates().accept(state))
         {
-            nodes.push_back(std::format("{} [label=<{}>, shape=circle]", state, state));
+            nodes.push_back(std::format("{} [label=<{}>, shape=doublecircle, color=blue]", state, state));
         }
         else
         {
-            nodes.push_back(std::format("{} [label=<{}>, shape=doublecircle, color=blue]", state, state));
+            nodes.push_back(std::format("{} [label=<{}>, shape=circle]", state, state));
         }
     }
 
@@ -44,6 +48,8 @@ static std::string nfa2graphviz(const NFA& nfa)
     }
 
     std::string graphviz = "digraph G{\n";
+    graphviz += "rankdir = LR\n";
+
     for (const auto& node : nodes)
     {
         graphviz += node;
