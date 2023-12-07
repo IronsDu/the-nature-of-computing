@@ -17,6 +17,8 @@ TEST_CASE("Test NFA link", "[Test NFA link]")
 
     NFA const nfa("q0", rules, acceptState);
 
+    auto oneNfaOutput = nfa2graphviz::nfa2graphviz(nfa);
+
     auto newNFA = fa_link::link(nfa, nfa);
 
     const auto output = nfa2graphviz::nfa2graphviz(newNFA);

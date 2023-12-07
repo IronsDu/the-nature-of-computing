@@ -47,6 +47,15 @@
 1. 后面的NFA的起始状态不会作为新NFA的起始状态。
 1. 将后面的NFA的终止状态设置为新NFA的终止状态。
 
+#### 连接示例
+
+下图是一个NFA的可视化展示：\
+![alt text](images\one-nfa.svg "one-nfa")
+
+连接两个NFA将得到下图中的NFA（为了避免状态冲突，我们在转换时添加了状态前缀）：\
+![alt text](images\link-nfa-result.svg "link-nfa-result")
+
+
 ## 开发进度
 - [x] DFA自动机
 - [x] NFA自动机
