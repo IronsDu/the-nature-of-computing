@@ -55,7 +55,7 @@
 ![alt text](images/one-nfa.svg "one-nfa")
 
 连接两个NFA将得到下图中的NFA（为了避免状态冲突，我们在转换时添加了状态前缀）：\
-![alt text](images/concatenate-nfa-result.svg "concatenate-nfa-result")
+![alt text](images/concatenate-nfa-result.png "concatenate-nfa-result")
 
 ### 三、自动机的并运算（并两个NFA）
 若有两个NFA：N1、N2，并运算为：N1 | N2，将得到一个新的NFA。生成步骤如下：
