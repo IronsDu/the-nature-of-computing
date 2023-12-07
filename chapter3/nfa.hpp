@@ -83,7 +83,7 @@ public:
           _acceptStates(std::move(acceptStates))
     {}
 
-    const auto& getTnitialState() const
+    const auto& getInitialState() const
     {
         return _initialState;
     }

@@ -13,9 +13,11 @@ add_test(TestNFA test_nfa)
 add_executable(test_nfa2dfa test_nfa2dfa.cpp)
 add_test(TestNFA2DFA test_nfa2dfa)
 
-add_executable(test_nfa_link test_nfa_link.cpp)
-add_test(TestFALink test_nfa_link)
+add_executable(test_nfa_concatenate test_nfa_concatenate.cpp)
+add_test(TestNFAConcatenate test_nfa_concatenate)
+
+add_executable(test_nfa_alternation test_nfa_alternation.cpp)
+add_test(TestNFAAlternation test_nfa_alternation)
 
 add_executable(test_nfa2graphviz test_nfa2graphviz.cpp)
 add_test(TestNFA2Graphviz test_nfa2graphviz)
-

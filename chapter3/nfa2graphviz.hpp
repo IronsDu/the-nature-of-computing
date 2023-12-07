@@ -9,7 +9,7 @@ namespace nfa2graphviz {
 // 根据NFA生成graphviz
 static std::string nfa2graphviz(const NFA& nfa)
 {
-    auto initState = nfa.getTnitialState();
+    auto initState = nfa.getInitialState();
 
     std::vector<std::string> nodes;
     auto stateSet = nfa.getStateSet();
