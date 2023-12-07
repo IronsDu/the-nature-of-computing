@@ -93,6 +93,11 @@ public:
         return _acceptStates;
     }
 
+    const auto& getRules() const
+    {
+        return _rules;
+    }
+
     bool accept(std::list<InputType> inputs) const
     {
         if (inputs.empty() && _acceptStates.accept(_initialState))
