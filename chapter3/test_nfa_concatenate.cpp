@@ -1,7 +1,7 @@
 ﻿#define CATCH_CONFIG_MAIN// This tells Catch to provide a main() - only do this in one cpp file
 #include "catch2/catch.hpp"
-#include "fa_link.hpp"
 #include "nfa2graphviz.hpp"
+#include "nfa_concatenate.hpp"
 
 TEST_CASE("Test NFA link", "[Test NFA link]")
 {
@@ -19,7 +19,7 @@ TEST_CASE("Test NFA link", "[Test NFA link]")
 
     auto oneNfaOutput = nfa2graphviz::nfa2graphviz(nfa);
 
-    auto newNFA = fa_link::link(nfa, nfa);
+    auto newNFA = nfa_operator::concatenate(nfa, nfa);
 
     const auto output = nfa2graphviz::nfa2graphviz(newNFA);
 

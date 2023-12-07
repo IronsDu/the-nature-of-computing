@@ -44,7 +44,7 @@ static DFA convertNFA2DFA(const NFA& nfa)
     {
         // 获取NFA的起始状态，以及获取此起始状态在空输入下所能达到的状态
         std::set<State> newInitialStateSet;
-        auto initialState = nfa.getTnitialState();
+        auto initialState = nfa.getInitialState();
         auto initialStateTarget = nfa.getEmptyInputTargetState(initialState);
 
         newInitialStateSet.insert(initialState);
