@@ -19,5 +19,9 @@ add_test(TestNFAConcatenate test_nfa_concatenate)
 add_executable(test_nfa_alternation test_nfa_alternation.cpp)
 add_test(TestNFAAlternation test_nfa_alternation)
 
+add_executable(test_nfa_repeat test_nfa_repeat.cpp)
+add_test(TestNFARepeat test_nfa_repeat)
+
+
 add_executable(test_nfa2graphviz test_nfa2graphviz.cpp)
 add_test(TestNFA2Graphviz test_nfa2graphviz)
