@@ -1,11 +1,10 @@
 ﻿#define CATCH_CONFIG_MAIN// This tells Catch to provide a main() - only do this in one cpp file
-#include "dfa.hpp"
-
 #include "catch2/catch.hpp"
+#include "dfa.hpp"
 
 TEST_CASE("Test DFA", "[Test DFA]")
 {
-    std::vector<FARule> const rules = {
+    std::vector<DFARule> const rules = {
             {"q1", '0', "q1"},// 状态q0下若接受到'0'则转移到状态q1
             {"q1", '1', "q2"},
             {"q2", '0', "q3"},
@@ -13,7 +12,7 @@ TEST_CASE("Test DFA", "[Test DFA]")
             {"q3", '0', "q2"},
             {"q3", '1', "q2"},
     };
-    AcceptStates const acceptState({"q2"});
+    DFAAcceptStates const acceptState({"q2"});
 
     DFA const dfa("q1", rules, acceptState);
 

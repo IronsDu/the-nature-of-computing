@@ -1,20 +1,21 @@
-﻿#include <list>
+﻿#pragma once
+
+#include <list>
 #include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-using State = std::string;
-using InputType = char;
+#include "fa_common.hpp"
 
 // 有限状态机（状态转移）规则
 // 定义某个状态下接收到某个输入时转移到哪个状态
 // 因为用于实现NFA，所以输入允许为空
-class FARule
+class NFARule
 {
 public:
-    FARule(State startState, std::optional<InputType> character, State nextState)
+    NFARule(State startState, std::optional<InputType> character, State nextState)
         : _startState(startState),
           _input(character),
           _nextState(nextState)
@@ -52,10 +53,10 @@ private:
 };
 
 // 定义终止状态，即可接受的状态有哪些
-class AcceptStates
+class NFAAcceptStates
 {
 public:
-    AcceptStates(std::unordered_set<State> acceptStateSet)
+    NFAAcceptStates(std::set<State> acceptStateSet)
         : _acceptStateSet(std::move(acceptStateSet))
     {}
 
@@ -64,18 +65,33 @@ public:
         return _acceptStateSet.contains(state);
     }
 
+    const std::set<State>& getAcceptStateSet() const
+    {
+        return _acceptStateSet;
+    }
+
 private:
-    const std::unordered_set<State> _acceptStateSet;
+    const std::set<State> _acceptStateSet;
 };
 
 class NFA
 {
 public:
-    NFA(State initialState, std::vector<FARule> rules, AcceptStates acceptStates)
+    NFA(State initialState, std::vector<NFARule> rules, NFAAcceptStates acceptStates)
         : _initialState(initialState),
           _rules(std::move(rules)),
           _acceptStates(std::move(acceptStates))
     {}
+
+    const auto& getTnitialState() const
+    {
+        return _initialState;
+    }
+
+    const NFAAcceptStates& getAcceptStates() const
+    {
+        return _acceptStates;
+    }
 
     bool accept(std::list<InputType> inputs) const
     {
@@ -117,11 +133,58 @@ public:
         return false;
     }
 
+    // 获取状态转移表
+    // 外层map的key作为起始状态，其value表示此状态下接受的非空输入所能达到的状态集合
+    std::map<State, std::map<InputType, std::set<State>>> getTransformRelation() const
+    {
+        std::map<State, std::map<InputType, std::set<State>>> transformMap;
+
+        for (const auto& rule : _rules)
+        {
+            auto& transform = transformMap[rule.startState()];
+            if (!rule.input())
+            {
+                continue;
+            }
+
+            auto& nextStateSet = transform[rule.input().value()];
+            nextStateSet.insert(rule.nextState());
+            auto emptyInputTargetStateSet = getEmptyInputTargetState(rule.nextState());
+            for (const auto& s : emptyInputTargetStateSet)
+            {
+                nextStateSet.insert(s);
+            }
+        }
+
+        return transformMap;
+    }
+
+    // 计算以某状态开始，以空作为输入所能达到的状态集
+    std::set<State> getEmptyInputTargetState(State startState) const
+    {
+        std::set<State> targetStateSet;
+        for (const auto& rule : _rules)
+        {
+            if (!rule.accept(startState, std::nullopt))
+            {
+                continue;
+            }
+
+            targetStateSet.insert(rule.nextState());
+            auto subTargetStateSet = getEmptyInputTargetState(rule.nextState());
+            for (const auto& s : subTargetStateSet)
+            {
+                targetStateSet.insert(s);
+            }
+        }
+        return targetStateSet;
+    }
+
 private:
     // 返回满足当前状态和输入的规则列表
-    std::vector<FARule> _matchRules(const State currentState, const std::optional<InputType> input) const
+    std::vector<NFARule> _matchRules(const State currentState, const std::optional<InputType> input) const
     {
-        std::vector<FARule> nextRules;
+        std::vector<NFARule> nextRules;
         for (const auto& rule : _rules)
         {
             if (rule.accept(currentState, input))
@@ -134,17 +197,6 @@ private:
 
 private:
     const State _initialState;
-    const std::vector<FARule> _rules;
-    const AcceptStates _acceptStates;
+    const std::vector<NFARule> _rules;
+    const NFAAcceptStates _acceptStates;
 };
-
-
-static std::list<InputType> convertStringToInputs(const std::string& str)
-{
-    std::list<InputType> inputs;
-    for (char const c : str)
-    {
-        inputs.push_back(c);
-    }
-    return inputs;
-}

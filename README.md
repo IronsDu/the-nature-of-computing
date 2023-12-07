@@ -17,6 +17,10 @@
 
 在大多数书籍（包括编译原理）都会对计算模型进行形式化（更为数学化的）的定义，一方面讲，它更为准确，可以避免自然语言带来的歧义性，便于学习、交流。此外，它可以帮助人们使用数学工具或额外的工具去证明/研究计算模型的相关理论。（本repo不会涉及形式化定义，因为编写它们太麻烦了~）
 
+## 章节介绍
+- 第三章：[有限自动机](https://github.com/IronsDu/the-nature-of-computing/tree/main/chapter3)
+
+
 ## 参考
 1. 计算的本质。[豆瓣链接](https://book.douban.com/subject/26148763/)：https://book.douban.com/subject/26148763/。
 2. 计算理论导引。[豆瓣链接](https://book.douban.com/subject/1852515/)：https://book.douban.com/subject/1852515/。
