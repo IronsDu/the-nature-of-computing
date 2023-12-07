@@ -133,9 +133,30 @@ public:
         return false;
     }
 
+    std::set<State> getStateSet() const
+    {
+        std::set<State> stateSet;
+        for (const auto& rule : _rules)
+        {
+            stateSet.insert(rule.startState());
+            stateSet.insert(rule.nextState());
+        }
+        return stateSet;
+    }
+
+    std::map<State, std::map<std::optional<InputType>, std::set<State>>> getTransformRelation() const
+    {
+        std::map<State, std::map<std::optional<InputType>, std::set<State>>> transformMap;
+        for (const auto& rule : _rules)
+        {
+            transformMap[rule.startState()][rule.input()].insert(rule.nextState());
+        }
+        return transformMap;
+    }
+
     // 获取状态转移表
     // 外层map的key作为起始状态，其value表示此状态下接受的非空输入所能达到的状态集合
-    std::map<State, std::map<InputType, std::set<State>>> getTransformRelation() const
+    std::map<State, std::map<InputType, std::set<State>>> getTransformRelationOptEmpty() const
     {
         std::map<State, std::map<InputType, std::set<State>>> transformMap;
 

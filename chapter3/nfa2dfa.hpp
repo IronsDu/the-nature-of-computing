@@ -37,7 +37,7 @@ static std::vector<std::set<State>> generateCombList(std::set<State> stateSet)
 static DFA convertNFA2DFA(const NFA& nfa)
 {
     // 获取NFA的状态转移表
-    const auto transformRelation = nfa.getTransformRelation();
+    const auto transformRelation = nfa.getTransformRelationOptEmpty();
 
     // 新的起始状态
     State newInitialState;
