@@ -50,10 +50,10 @@
 #### 连接示例
 
 下图是一个NFA的可视化展示：\
-![alt text](images\one-nfa.svg "one-nfa")
+![alt text](images/one-nfa.svg "one-nfa")
 
 连接两个NFA将得到下图中的NFA（为了避免状态冲突，我们在转换时添加了状态前缀）：\
-![alt text](images\link-nfa-result.svg "link-nfa-result")
+![alt text](images/link-nfa-result.svg "link-nfa-result")
 
 
 ## 开发进度
