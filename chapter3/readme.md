@@ -49,7 +49,7 @@
 1. 后面的NFA的起始状态不会作为新NFA的起始状态。
 1. 将后面的NFA（添加前缀后的）的终止状态设置为新NFA的终止状态。
 
-#### 连接示例
+#### 连接运算示例
 
 下图是一个NFA的可视化展示：\
 ![alt text](images/one-nfa.svg "one-nfa")
@@ -65,9 +65,12 @@
 1. 原N1和N2的起始状态不作为新NFA起始状态。
 1. 原N1和N2的（添加前缀后的）终止状态作为新NFA起始状态。
 
-#### 连接示例
+#### 并运算示例
 
-以连接运算中的NFA作为举例，连接相同两个NFA将得到下图中的NFA（为了避免状态冲突，我们在转换时添加了状态前缀）：\
+下图是一个NFA的可视化展示：\
+![alt text](images/one-nfa.svg "one-nfa")
+
+我们对相同两个NFA进行并运算（N1 | N2）将得到下图中的NFA（为了避免状态冲突，我们在转换时添加了状态前缀）：\
 ![alt text](images/alternation-nfa-result.svg "alternation-nfa-result")
 
 ## 开发进度
