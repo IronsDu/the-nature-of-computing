@@ -41,7 +41,7 @@ static NFA concatenate(const NFA& front, const NFA& tail)
 
     // 根据后面NFA的终止状态施加前缀，得到新的终止状态
     std::set<State> newFiniteStateSet;
-    for (const auto& state : front.getAcceptStates().getAcceptStateSet())
+    for (const auto& state : tail.getAcceptStates().getAcceptStateSet())
     {
         newFiniteStateSet.insert(tailStatePrefix + state);
     }

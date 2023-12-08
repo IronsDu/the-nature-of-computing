@@ -59,6 +59,14 @@ public:
     NFAAcceptStates(std::set<State> acceptStateSet)
         : _acceptStateSet(std::move(acceptStateSet))
     {}
+    NFAAcceptStates(const NFAAcceptStates& right)
+        : _acceptStateSet(right._acceptStateSet)
+    {
+    }
+    NFAAcceptStates(NFAAcceptStates&& right)
+        : _acceptStateSet(std::move(right._acceptStateSet))
+    {
+    }
 
     bool accept(const State& state) const
     {
@@ -82,6 +90,20 @@ public:
           _rules(std::move(rules)),
           _acceptStates(std::move(acceptStates))
     {}
+
+    NFA(const NFA& right)
+        : _initialState(right._initialState),
+          _rules(right._rules),
+          _acceptStates(right._acceptStates)
+    {
+    }
+
+    NFA(NFA&& right)
+        : _initialState(std::move(right._initialState)),
+          _rules(std::move(right._rules)),
+          _acceptStates(std::move(right._acceptStates))
+    {
+    }
 
     const auto& getInitialState() const
     {
@@ -159,6 +181,39 @@ public:
         return transformMap;
     }
 
+    std::map<InputType, std::set<State>> getDeterminationTransform(State startState) const
+    {
+        std::map<InputType, std::set<State>> result;
+        for (const auto& rule : _rules)
+        {
+            if (rule.startState() != startState)
+            {
+                continue;
+            }
+            if (rule.input())
+            {
+                result[rule.input().value()].insert(rule.nextState());
+                auto emptyTargetSet = getEmptyInputTargetState(rule.nextState());
+                for (const auto& state : emptyTargetSet)
+                {
+                    result[rule.input().value()].insert(state);
+                }
+            }
+            else
+            {
+                auto subResult = getDeterminationTransform(rule.nextState());
+                for (const auto& [input, satteSet] : subResult)
+                {
+                    for (const auto& state : satteSet)
+                    {
+                        result[input].insert(state);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
     // 获取状态转移表
     // 外层map的key作为起始状态，其value表示此状态下接受的非空输入所能达到的状态集合
     std::map<State, std::map<InputType, std::set<State>>> getTransformRelationOptEmpty() const
@@ -167,19 +222,11 @@ public:
 
         for (const auto& rule : _rules)
         {
-            auto& transform = transformMap[rule.startState()];
-            if (!rule.input())
+            if (transformMap.contains(rule.startState()))
             {
                 continue;
             }
-
-            auto& nextStateSet = transform[rule.input().value()];
-            nextStateSet.insert(rule.nextState());
-            auto emptyInputTargetStateSet = getEmptyInputTargetState(rule.nextState());
-            for (const auto& s : emptyInputTargetStateSet)
-            {
-                nextStateSet.insert(s);
-            }
+            transformMap[rule.startState()] = getDeterminationTransform(rule.startState());
         }
 
         return transformMap;

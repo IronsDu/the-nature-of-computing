@@ -25,3 +25,6 @@ add_test(TestNFARepeat test_nfa_repeat)
 
 add_executable(test_nfa2graphviz test_nfa2graphviz.cpp)
 add_test(TestNFA2Graphviz test_nfa2graphviz)
+
+add_executable(test_regex_generate test_regex_generate.cpp)
+add_test(TestRegexGenerate test_regex_generate)

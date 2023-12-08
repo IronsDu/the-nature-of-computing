@@ -78,6 +78,64 @@ public:
           _acceptStates(std::move(acceptStates))
     {}
 
+    const auto& getInitialState() const
+    {
+        return _initialState;
+    }
+
+    const auto& getAcceptStates() const
+    {
+        return _acceptStates;
+    }
+
+    const auto& getRules() const
+    {
+        return _rules;
+    }
+
+    auto getOpt() const
+    {
+        std::map<State, std::map<InputType, State>> transformRelation;
+        std::set<State> startStateSet;
+        std::set<State> nextStateSet;
+        for (const auto& rule : _rules)
+        {
+            transformRelation[rule.startState()][rule.input()] = rule.nextState();
+            startStateSet.insert(rule.startState());
+            nextStateSet.insert(rule.nextState());
+
+            std::cout << rule.startState() << " " << rule.input() << " " << rule.nextState() << std::endl;
+        }
+
+        std::vector<DFARule> rules;
+        for (const auto& state : startStateSet)
+        {
+            if (state != _initialState && !nextStateSet.contains(state))
+            {
+                transformRelation.erase(state);
+                continue;
+            }
+            const auto& transfrom = transformRelation[state];
+            for (const auto& [input, nextState] : transfrom)
+            {
+                rules.push_back(DFARule(state, input, nextState));
+            }
+        }
+
+        return DFA(_initialState, rules, _acceptStates);
+    }
+
+    auto getStateSet() const
+    {
+        std::set<State> stateSet;
+        for (const auto& rule : _rules)
+        {
+            stateSet.insert(rule.startState());
+            stateSet.insert(rule.nextState());
+        }
+        return stateSet;
+    }
+
     // 检查此有限状态机的定义是否有效
     bool valid() const
     {
