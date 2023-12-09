@@ -15,9 +15,9 @@ class DFARule
 {
 public:
     DFARule(State startState, InputType character, State nextState)
-        : _startState(startState),
+        : _startState(std::move(startState)),
           _input(character),
-          _nextState(nextState)
+          _nextState(std::move(nextState))
     {
     }
 
@@ -58,6 +58,14 @@ public:
     DFAAcceptStates(std::unordered_set<State> acceptStateSet)
         : _acceptStateSet(std::move(acceptStateSet))
     {}
+    DFAAcceptStates(const DFAAcceptStates& right)
+        : _acceptStateSet(right._acceptStateSet)
+    {
+    }
+    DFAAcceptStates(DFAAcceptStates&& rvalue)
+        : _acceptStateSet(std::move(rvalue._acceptStateSet))
+    {
+    }
 
     bool accept(const State& state) const
     {
@@ -73,10 +81,103 @@ class DFA
 {
 public:
     DFA(State initialState, std::vector<DFARule> rules, DFAAcceptStates acceptStates)
-        : _initialState(initialState),
+        : _initialState(std::move(initialState)),
           _rules(std::move(rules)),
           _acceptStates(std::move(acceptStates))
     {}
+
+    DFA(DFA&& rvalue)
+        : _initialState(std::move(rvalue._initialState)),
+          _rules(std::move(rvalue._rules)),
+          _acceptStates(std::move(rvalue._acceptStates))
+    {
+    }
+
+    const auto& getInitialState() const
+    {
+        return _initialState;
+    }
+
+    const auto& getAcceptStates() const
+    {
+        return _acceptStates;
+    }
+
+    const auto& getRules() const
+    {
+        return _rules;
+    }
+
+    // 裁剪掉无法到达的状态及其状态转移规则
+    auto trim() const
+    {
+        std::map<State, std::map<InputType, State>> transformRelation;
+        for (const auto& rule : _rules)
+        {
+            transformRelation[rule.startState()][rule.input()] = rule.nextState();
+        }
+
+        std::vector<State> leftState = {_initialState};
+        // 记录当前访问过的状态节点，这些节点也是能够到达的节点，这些节点之外的节点都是无法到达的.
+        std::set<State> visitedState;
+        while (!leftState.empty())
+        {
+            auto state = leftState.back();
+            visitedState.insert(state);
+            leftState.pop_back();
+
+            if (!transformRelation.contains(state))
+            {
+                continue;
+            }
+
+            for (const auto& [input, nextState] : transformRelation[state])
+            {
+                if (!visitedState.contains(nextState))
+                {
+                    leftState.push_back(nextState);
+                }
+            }
+        }
+
+        // 从状态转移中删除无法访问的节点的状态转移
+        for (auto it = transformRelation.begin(); it != transformRelation.end();)
+        {
+            if (!visitedState.contains(it->first))
+            {
+                it = transformRelation.erase(it);
+            }
+            else
+            {
+                it++;
+            }
+        }
+
+        // 根据最新的状态转移表构建转移规则列表
+        std::vector<DFARule> rules;
+        for (const auto& [state, transfrom] : transformRelation)
+        {
+            for (const auto& [input, nextState] : transfrom)
+            {
+                rules.push_back(DFARule(state, input, nextState));
+            }
+        }
+
+        // _acceptStates 无需修改，不影响正确性
+        return DFA(_initialState, std::move(rules), _acceptStates);
+    }
+
+    // 访问状态机中的所有状态
+    auto getStateSet() const
+    {
+        std::set<State> stateSet;
+        for (const auto& rule : _rules)
+        {
+            stateSet.insert(rule.startState());
+            stateSet.insert(rule.nextState());
+        }
+        return stateSet;
+    }
 
     // 检查此有限状态机的定义是否有效
     bool valid() const

@@ -59,6 +59,14 @@ public:
     NFAAcceptStates(std::set<State> acceptStateSet)
         : _acceptStateSet(std::move(acceptStateSet))
     {}
+    NFAAcceptStates(const NFAAcceptStates& right)
+        : _acceptStateSet(right._acceptStateSet)
+    {
+    }
+    NFAAcceptStates(NFAAcceptStates&& rvalue)
+        : _acceptStateSet(std::move(rvalue._acceptStateSet))
+    {
+    }
 
     bool accept(const State& state) const
     {
@@ -82,6 +90,20 @@ public:
           _rules(std::move(rules)),
           _acceptStates(std::move(acceptStates))
     {}
+
+    NFA(const NFA& right)
+        : _initialState(right._initialState),
+          _rules(right._rules),
+          _acceptStates(right._acceptStates)
+    {
+    }
+
+    NFA(NFA&& rvalue)
+        : _initialState(std::move(rvalue._initialState)),
+          _rules(std::move(rvalue._rules)),
+          _acceptStates(std::move(rvalue._acceptStates))
+    {
+    }
 
     const auto& getInitialState() const
     {
@@ -149,6 +171,7 @@ public:
         return stateSet;
     }
 
+    // 获取非确定性状态转移表
     std::map<State, std::map<std::optional<InputType>, std::set<State>>> getTransformRelation() const
     {
         std::map<State, std::map<std::optional<InputType>, std::set<State>>> transformMap;
@@ -159,34 +182,26 @@ public:
         return transformMap;
     }
 
-    // 获取状态转移表
+    // 获取确定性状态转移表
     // 外层map的key作为起始状态，其value表示此状态下接受的非空输入所能达到的状态集合
-    std::map<State, std::map<InputType, std::set<State>>> getTransformRelationOptEmpty() const
+    std::map<State, std::map<InputType, std::set<State>>> getDeterminationTransformRelation() const
     {
         std::map<State, std::map<InputType, std::set<State>>> transformMap;
 
         for (const auto& rule : _rules)
         {
-            auto& transform = transformMap[rule.startState()];
-            if (!rule.input())
+            if (transformMap.contains(rule.startState()))
             {
                 continue;
             }
-
-            auto& nextStateSet = transform[rule.input().value()];
-            nextStateSet.insert(rule.nextState());
-            auto emptyInputTargetStateSet = getEmptyInputTargetState(rule.nextState());
-            for (const auto& s : emptyInputTargetStateSet)
-            {
-                nextStateSet.insert(s);
-            }
+            transformMap[rule.startState()] = getDeterminationTransformUnderState(rule.startState());
         }
 
         return transformMap;
     }
 
     // 计算以某状态开始，以空作为输入所能达到的状态集
-    std::set<State> getEmptyInputTargetState(State startState) const
+    std::set<State> getEClosure(State startState) const
     {
         std::set<State> targetStateSet;
         for (const auto& rule : _rules)
@@ -197,16 +212,50 @@ public:
             }
 
             targetStateSet.insert(rule.nextState());
-            auto subTargetStateSet = getEmptyInputTargetState(rule.nextState());
-            for (const auto& s : subTargetStateSet)
+            auto subTargetStateSet = getEClosure(rule.nextState());
+            for (const auto& state : subTargetStateSet)
             {
-                targetStateSet.insert(s);
+                targetStateSet.insert(state);
             }
         }
         return targetStateSet;
     }
 
 private:
+    // 获取某状态开始的确定性状态转移表
+    std::map<InputType, std::set<State>> getDeterminationTransformUnderState(State startState) const
+    {
+        std::map<InputType, std::set<State>> result;
+        for (const auto& rule : _rules)
+        {
+            if (rule.startState() != startState)
+            {
+                continue;
+            }
+            if (rule.input())
+            {
+                result[rule.input().value()].insert(rule.nextState());
+                auto emptyTargetSet = getEClosure(rule.nextState());
+                for (const auto& state : emptyTargetSet)
+                {
+                    result[rule.input().value()].insert(state);
+                }
+            }
+            else
+            {
+                auto subResult = getDeterminationTransformUnderState(rule.nextState());
+                for (const auto& [input, satteSet] : subResult)
+                {
+                    for (const auto& state : satteSet)
+                    {
+                        result[input].insert(state);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
     // 返回满足当前状态和输入的规则列表
     std::vector<NFARule> _matchRules(const State currentState, const std::optional<InputType> input) const
     {

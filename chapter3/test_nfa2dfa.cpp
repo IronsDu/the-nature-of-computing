@@ -1,8 +1,10 @@
 ﻿#define CATCH_CONFIG_MAIN// This tells Catch to provide a main() - only do this in one cpp file
 #include "catch2/catch.hpp"
+#include "dfa2graphviz.hpp"
 #include "fa_common.hpp"
 #include "nfa.hpp"
 #include "nfa2dfa.hpp"
+#include "nfa2graphviz.hpp"
 
 TEST_CASE("Test NFA2DFA", "[Test NFA2DFA]")
 {
@@ -18,8 +20,10 @@ TEST_CASE("Test NFA2DFA", "[Test NFA2DFA]")
 
     NFA const nfa("q0", rules, acceptState);
 
+    auto nfaGraphviz = nfa2graphviz::nfa2graphviz(nfa);
     auto dfa = nfa2dfa::convertNFA2DFA(nfa);
 
+    auto dfaGraphviz = dfa2graphviz::dfa2graphviz(dfa);
     const std::vector<std::pair<std::string, bool>> tests = {
             {"ab", true},
             {"ad", false},

@@ -3,7 +3,7 @@
 #include "nfa2graphviz.hpp"
 #include "nfa_concatenate.hpp"
 
-TEST_CASE("Test NFA link", "[Test NFA link]")
+TEST_CASE("Test NFA concatenate", "[Test NFA concatenate]")
 {
     std::vector<NFARule> const rules = {
             {"q0", 'a', "q1"},// 状态0下若接受到'a'则转移到状态1
