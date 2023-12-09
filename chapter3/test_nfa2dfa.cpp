@@ -20,15 +20,15 @@ TEST_CASE("Test NFA2DFA", "[Test NFA2DFA]")
 
     NFA const nfa("q0", rules, acceptState);
 
+    auto nfaGraphviz = nfa2graphviz::nfa2graphviz(nfa);
     auto dfa = nfa2dfa::convertNFA2DFA(nfa);
 
+    auto dfaGraphviz = dfa2graphviz::dfa2graphviz(dfa);
     const std::vector<std::pair<std::string, bool>> tests = {
             {"ab", true},
             {"ad", false},
     };
 
-    auto nfaGraphviz = nfa2graphviz::nfa2graphviz(nfa);
-    auto dfaGraphviz = dfa2graphviz::dfa2graphviz(dfa);
     for (const auto& [input, expectedAccepted] : tests)
     {
         const auto isAccepted = dfa.accept(convertStringToInputs(input));

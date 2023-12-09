@@ -13,17 +13,20 @@ namespace regex_generate {
 
 static std::atomic_int stateSeq;
 
+const static std::string InitialState = "i";
+const static std::string FinalState = "f";
+
 static NFA Empty()
 {
     auto seq = stateSeq.fetch_add(1);
     auto seqStr = std::to_string(seq);
 
     std::vector<NFARule> const rules = {
-            {seqStr + "initial", std::nullopt, seqStr + "final"},
+            {seqStr + InitialState, std::nullopt, seqStr + FinalState},
     };
-    NFAAcceptStates const acceptState({seqStr + "final"});
+    NFAAcceptStates const acceptState({seqStr + FinalState});
 
-    NFA const nfa(seqStr + "initial", rules, acceptState);
+    NFA const nfa(seqStr + InitialState, rules, acceptState);
     return nfa;
 }
 
@@ -33,11 +36,11 @@ static NFA Symbol(char c)
     auto seq = stateSeq.fetch_add(1);
     auto seqStr = std::to_string(seq);
     std::vector<NFARule> const rules = {
-            {seqStr + "initial", c, seqStr + "final"},
+            {seqStr + InitialState, c, seqStr + FinalState},
     };
-    NFAAcceptStates const acceptState({seqStr + "final"});
+    NFAAcceptStates const acceptState({seqStr + FinalState});
 
-    NFA const nfa(seqStr + "initial", rules, acceptState);
+    NFA const nfa(seqStr + InitialState, rules, acceptState);
     return nfa;
 }
 

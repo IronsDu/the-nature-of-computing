@@ -6,122 +6,111 @@
 namespace nfa2dfa {
 
 // 生成状态的排列组合
-static std::vector<std::set<State>> generateCombList(std::vector<State> stateList)
+static std::vector<std::vector<State>> generateCombinationList(const std::vector<State>& stateList)
 {
-    if (stateList.empty())
+    std::vector<std::vector<State>> stateSetList;
+    for (const auto& state : stateList)
     {
-        return {};
+        const auto oldSize = stateSetList.size();
+        for (size_t i = 0; i < oldSize; i++)
+        {
+            auto tmp = stateSetList[i];
+            tmp.push_back(state);
+            stateSetList.emplace_back(std::move(tmp));
+        }
+        stateSetList.push_back({state});
     }
-
-    std::vector<std::set<State>> combState;
-    combState.push_back(std::set<State>({stateList[0]}));
-
-    stateList.erase(stateList.begin());
-    auto subComb = generateCombList(stateList);
-
-    for (auto& stateSet : subComb)
-    {
-        combState.push_back(stateSet);
-        stateSet.insert(stateList[0]);
-        combState.push_back(stateSet);
-    }
-
-    return combState;
+    return stateSetList;
 }
 
 // 生成状态的排列组合
-static std::vector<std::set<State>> generateCombList(std::set<State> stateSet)
+static std::vector<std::vector<State>> generateCombinationList(const std::set<State>& stateSet)
 {
     std::vector<State> stateList;
-    for (const auto& s : stateSet)
+    for (const auto& state : stateSet)
     {
-        stateList.push_back(s);
+        stateList.push_back(state);
     }
-    return generateCombList(stateList);
+    return generateCombinationList(stateList);
 }
 
 static DFA convertNFA2DFA(const NFA& nfa)
 {
-    // 获取NFA的状态转移表
-    const auto transformRelation = nfa.getTransformRelationOptEmpty();
-
     // 新的起始状态
     State newInitialState;
     {
         // 获取NFA的起始状态，以及获取此起始状态在空输入下所能达到的状态
         std::set<State> newInitialStateSet;
         auto initialState = nfa.getInitialState();
-        auto initialStateTarget = nfa.getEmptyInputTargetState(initialState);
+        auto initialStateTarget = nfa.getEClosure(initialState);
 
         newInitialStateSet.insert(initialState);
         newInitialStateSet.insert(initialStateTarget.begin(), initialStateTarget.end());
-        std::cout << "=====" << std::endl;
-        for (const auto& s : newInitialStateSet)
-        {
-            std::cout << s << std::endl;
-        }
-        std::cout << "====" << std::endl;
-        newInitialState = convertCombStateToString(newInitialStateSet);
+
+        newInitialState = convertCombinationStateToString(newInitialStateSet);
     }
 
-    std::cout << "~~~~~~~~~~" << std::endl;
-    // 从状态转移表中构造状态顺序表，用于后续的状态组合
-    std::vector<State> stateList;
-    for (const auto& [state, _] : transformRelation)
-    {
-        stateList.push_back(state);
-        std::cout << state << std::endl;
-    }
+    // 新的终止状态集
+    std::unordered_set<State> newAcceptedState;
 
-    std::cout << "~~~~~~~~~~" << std::endl;
-    std::vector<DFARule> rules;
-    // 计算状态的排列组合，计算每一个组合状态集在一些输入下将转移到的状态集
-    // 状态集都将转换为字符串，作为新的状态机的状态，并以此构造新的转换规则
-    auto stateCombList = generateCombList(stateList);
-    for (const auto& stateComb : stateCombList)
+    // 新的规则列表
+    std::vector<DFARule> newRules;
+
     {
-        if (stateComb.contains("klf5initialrf7initial") &&
-            stateComb.contains("lf5initial") &&
-            stateComb.contains("lf5initialrf7initial") &&
-            stateComb.contains("rf7initial"))
+        const auto stateSet = nfa.getStateSet();
+
+        const auto combinationStateList = generateCombinationList(stateSet);
+
+        // 构造新的终止状态集
+        for (const auto& combinationState : combinationStateList)
         {
-            std::cout << "1" << std::endl;
-        }
-        // 计算此状态组合在一些输入下所能达到的状态集合
-        std::map<InputType, std::set<State>> combTransform;
-        for (const auto& s : stateComb)
-        {
-            const auto& transform = transformRelation.at(s);
-            for (const auto& [input, stateSet] : transform)
+            bool hasAcceptedState = false;
+            for (const auto& state : combinationState)
             {
-                combTransform[input].insert(stateSet.begin(), stateSet.end());
+                if (nfa.getAcceptStates().accept(state))
+                {
+                    hasAcceptedState = true;
+                    break;
+                }
+            }
+            if (hasAcceptedState)
+            {
+                newAcceptedState.insert(convertCombinationStateToString(combinationState));
             }
         }
 
-        // 使用起始状态集何输入以及转移的目标状态集构造新的DFA中的规则
-        auto newState = convertCombStateToString(stateComb);
-        if (newState == "klf5initialrf7initiallf5initiallf5initialrf7initialrf7initial")
+        // 获取NFA的状态转移表
+        const auto transformRelation = nfa.getDeterminationTransformRelation();
+
+        // 计算每一个组合状态集在一些输入下将转移到的状态集
+        // 状态集都将转换为字符串，作为新的状态机的状态，并以此构造新的转换规则
+        for (const auto& combinationState : combinationStateList)
         {
-            std::cout << "1" << std::endl;
-        }
-        for (const auto& [input, nextStateSet] : combTransform)
-        {
-            auto newNextState = convertCombStateToString(nextStateSet);
-            rules.push_back(DFARule(newState, input, newNextState));
+            // 计算此状态组合在一些输入下所能达到的状态集合
+            std::map<InputType, std::set<State>> combinationTransform;
+            for (const auto& state : combinationState)
+            {
+                if (!transformRelation.contains(state))
+                {
+                    continue;
+                }
+                const auto& transform = transformRelation.at(state);
+                for (const auto& [input, stateSet] : transform)
+                {
+                    combinationTransform[input].insert(stateSet.begin(), stateSet.end());
+                }
+            }
+
+            // 使用起始状态集何输入以及转移的目标状态集构造新的DFA中的规则
+            auto newStartState = convertCombinationStateToString(combinationState);
+            for (const auto& [input, nextStateSet] : combinationTransform)
+            {
+                auto newNextState = convertCombinationStateToString(nextStateSet);
+                newRules.push_back(DFARule(newStartState, input, std::move(newNextState)));
+            }
         }
     }
 
-
-    // 构造新的终止状态集
-    std::unordered_set<State> acceptedState;
-    {
-        auto combStateList = generateCombList(nfa.getAcceptStates().getAcceptStateSet());
-        for (const auto& stateComb : combStateList)
-        {
-            acceptedState.insert(convertCombStateToString(stateComb));
-        }
-    }
-
-    return DFA(newInitialState, rules, DFAAcceptStates(acceptedState)).getOpt();
+    return DFA(newInitialState, std::move(newRules), DFAAcceptStates(std::move(newAcceptedState))).trim();
 }
 }// namespace nfa2dfa
