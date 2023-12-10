@@ -117,14 +117,14 @@ public:
             transformRelation[rule.startState()][rule.input()] = rule.nextState();
         }
 
-        std::vector<State> leftState = {_initialState};
+        std::vector<State> pedingState = {_initialState};
         // 记录当前访问过的状态节点，这些节点也是能够到达的节点，这些节点之外的节点都是无法到达的.
         std::set<State> visitedState;
-        while (!leftState.empty())
+        while (!pedingState.empty())
         {
-            auto state = leftState.back();
+            auto state = pedingState.back();
             visitedState.insert(state);
-            leftState.pop_back();
+            pedingState.pop_back();
 
             if (!transformRelation.contains(state))
             {
@@ -135,7 +135,7 @@ public:
             {
                 if (!visitedState.contains(nextState))
                 {
-                    leftState.push_back(nextState);
+                    pedingState.push_back(nextState);
                 }
             }
         }
@@ -153,6 +153,12 @@ public:
             }
         }
 
+        std::unordered_set<State> newFinalStateSet;
+        if (_acceptStates.accept(_initialState))
+        {
+            newFinalStateSet.insert(_initialState);
+        }
+
         // 根据最新的状态转移表构建转移规则列表
         std::vector<DFARule> rules;
         for (const auto& [state, transfrom] : transformRelation)
@@ -160,11 +166,14 @@ public:
             for (const auto& [input, nextState] : transfrom)
             {
                 rules.push_back(DFARule(state, input, nextState));
+                if (_acceptStates.accept(nextState))
+                {
+                    newFinalStateSet.insert(nextState);
+                }
             }
         }
 
-        // _acceptStates 无需修改，不影响正确性
-        return DFA(_initialState, std::move(rules), _acceptStates);
+        return DFA(_initialState, std::move(rules), DFAAcceptStates(newFinalStateSet));
     }
 
     // 访问状态机中的所有状态

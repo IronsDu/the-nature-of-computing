@@ -1,7 +1,9 @@
 ﻿#pragma once
 
 #include <list>
+#include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -73,6 +75,18 @@ public:
         return _acceptStateSet.contains(state);
     }
 
+    bool accept(const std::set<State>& stateSet) const
+    {
+        for (const auto& state : stateSet)
+        {
+            if (accept(state))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     const std::set<State>& getAcceptStateSet() const
     {
         return _acceptStateSet;
@@ -88,20 +102,23 @@ public:
     NFA(State initialState, std::vector<NFARule> rules, NFAAcceptStates acceptStates)
         : _initialState(initialState),
           _rules(std::move(rules)),
-          _acceptStates(std::move(acceptStates))
+          _acceptStates(std::move(acceptStates)),
+          _transformRelation(generateTransformRelation())
     {}
 
     NFA(const NFA& right)
         : _initialState(right._initialState),
           _rules(right._rules),
-          _acceptStates(right._acceptStates)
+          _acceptStates(right._acceptStates),
+          _transformRelation(generateTransformRelation())
     {
     }
 
     NFA(NFA&& rvalue)
         : _initialState(std::move(rvalue._initialState)),
           _rules(std::move(rvalue._rules)),
-          _acceptStates(std::move(rvalue._acceptStates))
+          _acceptStates(std::move(rvalue._acceptStates)),
+          _transformRelation(generateTransformRelation())
     {
     }
 
@@ -160,6 +177,21 @@ public:
         return false;
     }
 
+    std::vector<InputType> getNoneEmptyInputSet() const
+    {
+        std::vector<InputType> inputList;
+        std::set<InputType> inputSet;
+        for (const auto& rule : _rules)
+        {
+            if (rule.input() && !inputSet.contains(rule.input().value()))
+            {
+                inputSet.insert(rule.input().value());
+                inputList.push_back(rule.input().value());
+            }
+        }
+        return inputList;
+    }
+
     std::set<State> getStateSet() const
     {
         std::set<State> stateSet;
@@ -172,14 +204,9 @@ public:
     }
 
     // 获取非确定性状态转移表
-    std::map<State, std::map<std::optional<InputType>, std::set<State>>> getTransformRelation() const
+    const auto& getTransformRelation() const
     {
-        std::map<State, std::map<std::optional<InputType>, std::set<State>>> transformMap;
-        for (const auto& rule : _rules)
-        {
-            transformMap[rule.startState()][rule.input()].insert(rule.nextState());
-        }
-        return transformMap;
+        return _transformRelation;
     }
 
     // 获取确定性状态转移表
@@ -188,37 +215,54 @@ public:
     {
         std::map<State, std::map<InputType, std::set<State>>> transformMap;
 
-        for (const auto& rule : _rules)
+        const auto stateSet = getStateSet();
+        for (const auto& state : stateSet)
         {
-            if (transformMap.contains(rule.startState()))
-            {
-                continue;
-            }
-            transformMap[rule.startState()] = getDeterminationTransformUnderState(rule.startState());
+            transformMap[state] = getDeterminationTransformUnderState(state);
         }
-
         return transformMap;
     }
 
     // 计算以某状态开始，以空作为输入所能达到的状态集
     std::set<State> getEClosure(State startState) const
     {
-        std::set<State> targetStateSet;
-        for (const auto& rule : _rules)
+        std::set<State> eclosure;
+
+        std::vector<State> pendingState;
+        std::set<State> visitedState;
+        pendingState.push_back(startState);
+
+        while (!pendingState.empty())
         {
-            if (!rule.accept(startState, std::nullopt))
+            auto state = pendingState.back();
+            pendingState.pop_back();
+
+            eclosure.insert(state);
+            visitedState.insert(state);
+
+            const auto it = _transformRelation.find(state);
+            if (it == _transformRelation.end())
             {
                 continue;
             }
-
-            targetStateSet.insert(rule.nextState());
-            auto subTargetStateSet = getEClosure(rule.nextState());
-            for (const auto& state : subTargetStateSet)
+            for (const auto& [input, nextState] : it->second)
             {
-                targetStateSet.insert(state);
+                if (input)
+                {
+                    continue;
+                }
+                for (const auto& state : nextState)
+                {
+                    if (visitedState.contains(state))
+                    {
+                        continue;
+                    }
+                    pendingState.push_back(state);
+                }
             }
         }
-        return targetStateSet;
+
+        return eclosure;
     }
 
 private:
@@ -226,35 +270,48 @@ private:
     std::map<InputType, std::set<State>> getDeterminationTransformUnderState(State startState) const
     {
         std::map<InputType, std::set<State>> result;
-        for (const auto& rule : _rules)
+
+        std::set<State> visitedState;
+        std::vector<State> pendingState;
+        pendingState.push_back(startState);
+        while (!pendingState.empty())
         {
-            if (rule.startState() != startState)
+            auto currentState = pendingState.back();
+            pendingState.pop_back();
+            visitedState.insert(currentState);
+            const auto it = _transformRelation.find(currentState);
+            if (it == _transformRelation.end())
             {
                 continue;
             }
-            if (rule.input())
+
+            for (const auto& [input, nextState] : it->second)
             {
-                result[rule.input().value()].insert(rule.nextState());
-                auto emptyTargetSet = getEClosure(rule.nextState());
-                for (const auto& state : emptyTargetSet)
+                if (input)
                 {
-                    result[rule.input().value()].insert(state);
-                }
-            }
-            else
-            {
-                auto subResult = getDeterminationTransformUnderState(rule.nextState());
-                for (const auto& [input, satteSet] : subResult)
-                {
-                    for (const auto& state : satteSet)
+                    const auto& value = input.value();
+                    for (const auto& state : nextState)
                     {
-                        result[input].insert(state);
+                        result[value].insert(state);
+                    }
+                }
+                else
+                {
+                    for (const auto& state : nextState)
+                    {
+                        if (!visitedState.contains(state))
+                        {
+                            visitedState.insert(state);
+                            pendingState.push_back(state);
+                        }
                     }
                 }
             }
         }
+
         return result;
     }
+
 
     // 返回满足当前状态和输入的规则列表
     std::vector<NFARule> _matchRules(const State currentState, const std::optional<InputType> input) const
@@ -270,8 +327,21 @@ private:
         return nextRules;
     }
 
+    // 构造非确定性状态转移表
+    std::map<State, std::map<std::optional<InputType>, std::set<State>>> generateTransformRelation() const
+    {
+        std::map<State, std::map<std::optional<InputType>, std::set<State>>> transformMap;
+        for (const auto& rule : _rules)
+        {
+            transformMap[rule.startState()][rule.input()].insert(rule.nextState());
+        }
+        return transformMap;
+    }
+
+
 private:
     const State _initialState;
     const std::vector<NFARule> _rules;
     const NFAAcceptStates _acceptStates;
+    const std::map<State, std::map<std::optional<InputType>, std::set<State>>> _transformRelation;
 };

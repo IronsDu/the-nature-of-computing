@@ -34,7 +34,7 @@ static std::string nfa2graphviz(const NFA& nfa)
     }
 
     std::vector<std::string> edges;
-    auto transformRelation = nfa.getTransformRelation();
+    const auto& transformRelation = nfa.getTransformRelation();
     for (const auto& [startState, transform] : transformRelation)
     {
         for (const auto& [input, nextStateSet] : transform)
