@@ -5,112 +5,95 @@
 
 namespace nfa2dfa {
 
-// 生成状态的排列组合
-static std::vector<std::vector<State>> generateCombinationList(const std::vector<State>& stateList)
-{
-    std::vector<std::vector<State>> stateSetList;
-    for (const auto& state : stateList)
-    {
-        const auto oldSize = stateSetList.size();
-        for (size_t i = 0; i < oldSize; i++)
-        {
-            auto tmp = stateSetList[i];
-            tmp.push_back(state);
-            stateSetList.emplace_back(std::move(tmp));
-        }
-        stateSetList.push_back({state});
-    }
-    return stateSetList;
-}
-
-// 生成状态的排列组合
-static std::vector<std::vector<State>> generateCombinationList(const std::set<State>& stateSet)
-{
-    std::vector<State> stateList;
-    for (const auto& state : stateSet)
-    {
-        stateList.push_back(state);
-    }
-    return generateCombinationList(stateList);
-}
-
 static DFA convertNFA2DFA(const NFA& nfa)
 {
-    // 新的起始状态
-    State newInitialState;
-    {
-        // 获取NFA的起始状态，以及获取此起始状态在空输入下所能达到的状态
-        std::set<State> newInitialStateSet;
-        auto initialState = nfa.getInitialState();
-        auto initialStateTarget = nfa.getEClosure(initialState);
+    const std::vector<InputType> inputSet = nfa.getNoneEmptyInputSet();
+    const auto determinationTransformRelation = nfa.getDeterminationTransformRelation();
+    const auto initialStateEClosure = nfa.getEClosure(nfa.getInitialState());
 
-        newInitialStateSet.insert(initialState);
-        newInitialStateSet.insert(initialStateTarget.begin(), initialStateTarget.end());
+    auto newInitialState = convertCombinationStateToString(initialStateEClosure);
 
-        newInitialState = convertCombinationStateToString(newInitialStateSet);
-    }
-
-    // 新的终止状态集
-    std::unordered_set<State> newAcceptedState;
+    // 已经处理过的状态组合(此状态是原状态组合之后的状态)
+    std::set<State> visitedStateSet;
+    // 待处理的状态组合(其中的状态为原始状态)
+    std::vector<std::set<State>> pendingStateSet;
+    pendingStateSet.push_back(initialStateEClosure);
 
     // 新的规则列表
     std::vector<DFARule> newRules;
+    // 新的终结状态
+    std::unordered_set<State> newFinalState;
 
+    if (nfa.getAcceptStates().accept(initialStateEClosure))
     {
-        const auto stateSet = nfa.getStateSet();
+        newFinalState.insert(newInitialState);
+    }
 
-        const auto combinationStateList = generateCombinationList(stateSet);
-
-        // 构造新的终止状态集
-        for (const auto& combinationState : combinationStateList)
+    std::set<State> finalStateEClosure;
+    {
+        // 由于NFA里可能存在某些状态接受空输入可以达到结束状态，这些关系没有优化
+        // 因此我们可以把这些状态也当作“终止”状态，后续子集构造中，只要遇到包含这些“终止”状态的组合，都可以看作新的DFA的终止状态
+        const auto stateList = nfa.getStateSet();
+        for (const auto& state : stateList)
         {
-            bool hasAcceptedState = false;
-            for (const auto& state : combinationState)
+            if (nfa.getAcceptStates().accept(nfa.getEClosure(state)))
             {
-                if (nfa.getAcceptStates().accept(state))
-                {
-                    hasAcceptedState = true;
-                    break;
-                }
-            }
-            if (hasAcceptedState)
-            {
-                newAcceptedState.insert(convertCombinationStateToString(combinationState));
-            }
-        }
-
-        // 获取NFA的状态转移表
-        const auto transformRelation = nfa.getDeterminationTransformRelation();
-
-        // 计算每一个组合状态集在一些输入下将转移到的状态集
-        // 状态集都将转换为字符串，作为新的状态机的状态，并以此构造新的转换规则
-        for (const auto& combinationState : combinationStateList)
-        {
-            // 计算此状态组合在一些输入下所能达到的状态集合
-            std::map<InputType, std::set<State>> combinationTransform;
-            for (const auto& state : combinationState)
-            {
-                if (!transformRelation.contains(state))
-                {
-                    continue;
-                }
-                const auto& transform = transformRelation.at(state);
-                for (const auto& [input, stateSet] : transform)
-                {
-                    combinationTransform[input].insert(stateSet.begin(), stateSet.end());
-                }
-            }
-
-            // 使用起始状态集何输入以及转移的目标状态集构造新的DFA中的规则
-            auto newStartState = convertCombinationStateToString(combinationState);
-            for (const auto& [input, nextStateSet] : combinationTransform)
-            {
-                auto newNextState = convertCombinationStateToString(nextStateSet);
-                newRules.push_back(DFARule(newStartState, input, std::move(newNextState)));
+                finalStateEClosure.insert(state);
             }
         }
     }
 
-    return DFA(newInitialState, std::move(newRules), DFAAcceptStates(std::move(newAcceptedState))).trim();
+    NFAAcceptStates originAcceptedStateEClosure(finalStateEClosure);
+
+    while (!pendingStateSet.empty())
+    {
+        auto currentStartStateSet = pendingStateSet.back();
+        const auto currentStartStateStr = convertCombinationStateToString(currentStartStateSet);
+        pendingStateSet.pop_back();
+        visitedStateSet.insert(currentStartStateStr);
+
+        for (const auto& input : inputSet)
+        {
+            // 计算当前开始状态集下输入input所能到达的状态集
+            std::set<State> nextStateSet;
+            for (const auto& state : currentStartStateSet)
+            {
+                if (!determinationTransformRelation.contains(state))
+                {
+                    continue;
+                }
+                const auto& transform = determinationTransformRelation.at(state);
+                if (!transform.contains(input))
+                {
+                    continue;
+                }
+                const auto& originNextStateSet = transform.at(input);
+                for (const auto& state : originNextStateSet)
+                {
+                    nextStateSet.insert(state);
+                }
+            }
+            if (nextStateSet.empty())
+            {
+                continue;
+            }
+
+            auto newNextStateStr = convertCombinationStateToString(nextStateSet);
+
+            if (originAcceptedStateEClosure.accept(nextStateSet))
+            {
+                newFinalState.insert(newNextStateStr);
+            }
+            if (!visitedStateSet.contains(newNextStateStr))
+            {
+                pendingStateSet.push_back(std::move(nextStateSet));
+            }
+
+            newRules.push_back(DFARule(currentStartStateStr, input, newNextStateStr));
+        }
+    }
+
+    return DFA(newInitialState, std::move(newRules), DFAAcceptStates(std::move(newFinalState))).trim();
 }
+
 }// namespace nfa2dfa

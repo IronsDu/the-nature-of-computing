@@ -35,7 +35,6 @@ TEST_CASE("Test regex generage match str", "[Test regex generage match str]")
 
 TEST_CASE("Test regex generage match repeat str", "[Test regex generage match repeat str]")
 {
-    return;
     // (abc|abcd)*
 
     const auto abcNfa = regex_generate::Str("abc");
