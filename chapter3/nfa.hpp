@@ -137,39 +137,59 @@ public:
         return _rules;
     }
 
-    bool accept(std::list<InputType> inputs) const
+    bool accept(const std::vector<InputType>& inputs) const
     {
-        if (inputs.empty() && _acceptStates.accept(_initialState))
-        {
-            return true;
-        }
+        // 待处理列表，每一个元素为：[当前所属状态、待处理字符在输入中的索引]
+        std::vector<std::tuple<State, int>> pendingTaskList;
+        // 已处理的任务 [状态、输入索引]
+        std::set<std::tuple<State, int>> visitedTask;
+        // 从 [起始状态、0索引] 开始进行迭代处理
+        pendingTaskList.push_back({_initialState, 0});
 
-        // 收集当前起始状态下空输入能满足的规则
-        auto matchRules = _matchRules(_initialState, std::nullopt);
-        for (auto rule : matchRules)
+        const auto inputSize = inputs.size();
+
+        while (!pendingTaskList.empty())
         {
-            // 以空输入匹配的规则的转移状态为起始状态派生新的NFA，尝试判断新的NFA是否接受输入
-            NFA const subNfa(rule.nextState(), _rules, _acceptStates);
-            if (subNfa.accept(inputs))
+            const auto currentTask = pendingTaskList.back();
+            pendingTaskList.pop_back();
+            visitedTask.insert(currentTask);
+
+            const auto& [currentState, currentInputIndex] = currentTask;
+
+            // 如果当前任务的输入索引处于输入的末尾、且当前任务的状态是终结状态，则返回接受
+            if (currentInputIndex == inputSize && _acceptStates.accept(currentState))
             {
                 return true;
             }
-        }
 
-        if (!inputs.empty())
-        {
-            // 收集当前起始状态下，第一个符号所能匹配的规则
-            matchRules = _matchRules(_initialState, inputs.front());
-            // 去掉开始符号，以剩下的输入构造新的NFA输入
-            inputs.pop_front();
-
-            for (auto rule : matchRules)
+            const auto it = _transformRelation.find(currentState);
+            if (it == _transformRelation.end())
             {
-                // 派生新的NFA，尝试判断新的NFA是否接受输入
-                NFA const subNfa(rule.nextState(), _rules, _acceptStates);
-                if (subNfa.accept(inputs))
+                continue;
+            }
+
+            for (const auto& [input, nextStateSet] : it->second)
+            {
+                std::optional<int> nextInputIndex;
+                if (input && currentInputIndex < inputSize && input.value() == inputs[currentInputIndex])
                 {
-                    return true;
+                    nextInputIndex = currentInputIndex + 1;
+                }
+                else if (!input)
+                {
+                    nextInputIndex = currentInputIndex;
+                }
+                else
+                {
+                    continue;
+                }
+
+                for (const auto& state : nextStateSet)
+                {
+                    if (!visitedTask.contains({state, nextInputIndex.value()}))
+                    {
+                        pendingTaskList.push_back({state, nextInputIndex.value()});
+                    }
                 }
             }
         }
@@ -183,10 +203,15 @@ public:
         std::set<InputType> inputSet;
         for (const auto& rule : _rules)
         {
-            if (rule.input() && !inputSet.contains(rule.input().value()))
+            if (!rule.input())
             {
-                inputSet.insert(rule.input().value());
-                inputList.push_back(rule.input().value());
+                continue;
+            }
+            else if (const auto inputValue = rule.input().value();
+                     !inputSet.contains(inputValue))
+            {
+                inputSet.insert(inputValue);
+                inputList.push_back(inputValue);
             }
         }
         return inputList;
@@ -310,21 +335,6 @@ private:
         }
 
         return result;
-    }
-
-
-    // 返回满足当前状态和输入的规则列表
-    std::vector<NFARule> _matchRules(const State currentState, const std::optional<InputType> input) const
-    {
-        std::vector<NFARule> nextRules;
-        for (const auto& rule : _rules)
-        {
-            if (rule.accept(currentState, input))
-            {
-                nextRules.push_back(rule);
-            }
-        }
-        return nextRules;
     }
 
     // 构造非确定性状态转移表

@@ -9,9 +9,9 @@
 using State = std::string;
 using InputType = char;
 
-static std::list<InputType> convertStringToInputs(const std::string& str)
+static std::vector<InputType> convertStringToInputs(const std::string& str)
 {
-    std::list<InputType> inputs;
+    std::vector<InputType> inputs;
     for (char const c : str)
     {
         inputs.push_back(c);
