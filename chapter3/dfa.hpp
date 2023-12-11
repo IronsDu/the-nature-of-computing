@@ -263,7 +263,7 @@ public:
     }
 
     // 判断从初始状态开始，此FA是否接受输入序列
-    bool accept(const std::list<InputType>& inputs) const
+    bool accept(const std::vector<InputType>& inputs) const
     {
         auto currentState = _initialState;
         for (const auto& currentInput : inputs)
