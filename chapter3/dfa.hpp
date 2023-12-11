@@ -83,13 +83,15 @@ public:
     DFA(State initialState, std::vector<DFARule> rules, DFAAcceptStates acceptStates)
         : _initialState(std::move(initialState)),
           _rules(std::move(rules)),
-          _acceptStates(std::move(acceptStates))
+          _acceptStates(std::move(acceptStates)),
+          _transformRelation(generateTransformRelation())
     {}
 
     DFA(DFA&& rvalue)
         : _initialState(std::move(rvalue._initialState)),
           _rules(std::move(rvalue._rules)),
-          _acceptStates(std::move(rvalue._acceptStates))
+          _acceptStates(std::move(rvalue._acceptStates)),
+          _transformRelation(generateTransformRelation())
     {
     }
 
@@ -111,27 +113,24 @@ public:
     // 裁剪掉无法到达的状态及其状态转移规则
     auto trim() const
     {
-        std::map<State, std::map<InputType, State>> transformRelation;
-        for (const auto& rule : _rules)
-        {
-            transformRelation[rule.startState()][rule.input()] = rule.nextState();
-        }
-
+        // 待处理状态
         std::vector<State> pedingState = {_initialState};
         // 记录当前访问过的状态节点，这些节点也是能够到达的节点，这些节点之外的节点都是无法到达的.
         std::set<State> visitedState;
+
         while (!pedingState.empty())
         {
             auto state = pedingState.back();
             visitedState.insert(state);
             pedingState.pop_back();
 
-            if (!transformRelation.contains(state))
+            const auto it = _transformRelation.find(state);
+            if (it == _transformRelation.end())
             {
                 continue;
             }
 
-            for (const auto& [input, nextState] : transformRelation[state])
+            for (const auto& [input, nextState] : it->second)
             {
                 if (!visitedState.contains(nextState))
                 {
@@ -140,11 +139,13 @@ public:
             }
         }
 
+        auto transformRelation = _transformRelation;
         // 从状态转移中删除无法访问的节点的状态转移
         for (auto it = transformRelation.begin(); it != transformRelation.end();)
         {
             if (!visitedState.contains(it->first))
             {
+                // 如果此节点没有在之前被访问过，则可以删除从它开始的这条状态转移关系
                 it = transformRelation.erase(it);
             }
             else
@@ -267,14 +268,17 @@ public:
         auto currentState = _initialState;
         for (const auto& currentInput : inputs)
         {
-            auto matchRule = _accept(currentState, currentInput);
-            // 如果没有找到可接受的规则，则返回false，表示此FA不接受输入序列
-            if (!matchRule)
+            const auto it = _transformRelation.find(currentState);
+            if (it == _transformRelation.end())
             {
                 return false;
             }
-            // 状态切换到所匹配的规则指定的下一个状态
-            currentState = matchRule->nextState();
+            const auto nextStateIt = it->second.find(currentInput);
+            if (nextStateIt == it->second.end())
+            {
+                return false;
+            }
+            currentState = nextStateIt->second;
         }
 
         // 处理完输入序列之后，判断当前状态是否属于终止状态（即可接受状态)
@@ -282,27 +286,20 @@ public:
     }
 
 private:
-    // 判断以某个状态为开始的规则是否接受输入，若是则返回接受它的规则
-    std::optional<DFARule> _accept(const State currentState, const InputType input) const
+    // 构造确定性状态转移表
+    std::map<State, std::map<InputType, State>> generateTransformRelation() const
     {
+        std::map<State, std::map<InputType, State>> transformMap;
         for (const auto& rule : _rules)
         {
-            if (rule.startState() != currentState)
-            {
-                // 如果规则开始状态不是当前状态，则跳过此规则
-                // 注意：理论上可以不进行此判断，因为下面的rule.accept自然也会判断
-                continue;
-            }
-
-            if (rule.accept(currentState, input))
-            {
-                return rule;
-            }
+            transformMap[rule.startState()][rule.input()] = rule.nextState();
         }
-        return std::nullopt;
+        return transformMap;
     }
 
     const State _initialState;
     const std::vector<DFARule> _rules;
     const DFAAcceptStates _acceptStates;
+
+    const std::map<State, std::map<InputType, State>> _transformRelation;
 };
