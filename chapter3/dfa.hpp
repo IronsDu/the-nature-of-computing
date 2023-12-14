@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -70,6 +71,11 @@ public:
     bool accept(const State& state) const
     {
         return _acceptStateSet.contains(state);
+    }
+
+    const auto& getStateSet() const
+    {
+        return _acceptStateSet;
     }
 
 private:
@@ -177,8 +183,138 @@ public:
         return DFA(_initialState, std::move(rules), DFAAcceptStates(newFinalStateSet));
     }
 
+    // 获取最小化的DFA
+    auto minimize() const
+    {
+        const auto inputSet = getInputSet();
+
+        std::vector<std::set<State>> groupList;
+        std::vector<std::set<State>> newGroupList;
+
+        {
+            // 收集所有转换关系中的开始状态集合，这些状态才是允许合并的
+            std::set<State> stateSet;
+            for (const auto& [state, _] : _transformRelation)
+            {
+                stateSet.insert(state);
+            }
+            groupList.push_back(stateSet);
+        }
+
+        // 根据每一个输入划分状态分组
+        for (const auto& input : inputSet)
+        {
+            for (const auto& group : groupList)
+            {
+                // 如果此分组的个数不超过1，则不需要进行尝试拆分
+                if (group.size() <= 1)
+                {
+                    newGroupList.push_back(group);
+                    continue;
+                }
+
+                std::map<State, std::set<State>> eatchSet;
+                std::set<State> cantEatchState;
+
+                for (const auto& state : group)
+                {
+                    const auto it = _transformRelation.find(state);
+                    if (it == _transformRelation.end())
+                    {
+                        // 这里应抛异常，按理不会存在这个分支情况
+                        cantEatchState.insert(state);
+                        continue;
+                    }
+                    const auto nextStateIt = it->second.find(input);
+                    if (nextStateIt == it->second.end())
+                    {
+                        // 如果是正规DFA，则也不应该出现此情况，但我们这里不做严格要求
+                        cantEatchState.insert(state);
+                        continue;
+                    }
+                    // 记录能到达某个状态的起始状态集
+                    eatchSet[nextStateIt->second].insert(state);
+                }
+
+                for (const auto& [_, startStateSet] : eatchSet)
+                {
+                    newGroupList.push_back(startStateSet);
+                }
+                if (!cantEatchState.empty())
+                {
+                    newGroupList.push_back(cantEatchState);
+                }
+            }
+
+            groupList = newGroupList;
+            newGroupList.clear();
+        }
+
+        // 根据分组构建替换表
+        std::map<State, State> insteadOf;
+        for (auto& group : groupList)
+        {
+            for (const auto& state : group)
+            {
+                insteadOf[state] = convertCombinationStateToString(group);
+            }
+        }
+
+        // 根据最新的状态转移表构建新的转移规则列表
+        std::vector<DFARule> rules;
+        for (const auto& rule : _rules)
+        {
+            auto startState = rule.startState();
+            if (const auto it = insteadOf.find(startState); it != insteadOf.end())
+            {
+                startState = it->second;
+            }
+
+            auto nextState = rule.nextState();
+            if (const auto it = insteadOf.find(nextState); it != insteadOf.end())
+            {
+                nextState = it->second;
+            }
+
+            rules.push_back(DFARule(startState, rule.input(), nextState));
+        }
+
+        // 获取新的起始状态
+        auto newInitialState = _initialState;
+        if (auto it = insteadOf.find(newInitialState); it != insteadOf.end())
+        {
+            newInitialState = it->second;
+        }
+
+        // 构建新的终止状态（因为某些终止状态也是一些关系的起始状态，也存在被合并的可能，所以可能需要替换）
+        std::unordered_set<State> newFinalStateSet;
+        for (const auto& oldFinalState : _acceptStates.getStateSet())
+        {
+            if (const auto it = insteadOf.find(oldFinalState); it != insteadOf.end())
+            {
+                newFinalStateSet.insert(it->second);
+            }
+            else
+            {
+                newFinalStateSet.insert(oldFinalState);
+            }
+        }
+
+        return DFA(newInitialState, std::move(rules), DFAAcceptStates(newFinalStateSet));
+    }
+
+    std::set<InputType> getInputSet() const
+    {
+        std::set<InputType> inputSet;
+        for (const auto& rule : _rules)
+        {
+            inputSet.insert(rule.input());
+        }
+        return inputSet;
+    }
+
     // 访问状态机中的所有状态
-    auto getStateSet() const
+    std::set<State> getStateSet() const
     {
         std::set<State> stateSet;
         for (const auto& rule : _rules)
@@ -262,6 +398,13 @@ public:
         return false;
     }
 
+    // 获取确定性状态转移表
+    const auto& getTransformRelation() const
+    {
+        return _transformRelation;
+    }
+
+
     // 判断从初始状态开始，此FA是否接受输入序列
     bool accept(const std::vector<InputType>& inputs) const
     {
@@ -297,6 +440,8 @@ private:
         return transformMap;
     }
 
+
+private:
     const State _initialState;
     const std::vector<DFARule> _rules;
     const DFAAcceptStates _acceptStates;

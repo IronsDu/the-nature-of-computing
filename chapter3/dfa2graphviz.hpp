@@ -35,9 +35,14 @@ static std::string dfa2graphviz(const DFA& dfa)
 
     std::vector<std::string> edges;
     const auto& rules = dfa.getRules();
-    for (const auto& rule : rules)
+    const auto& transformRelation = dfa.getTransformRelation();
+    for (const auto& [startState, transform] : transformRelation)
     {
-        edges.push_back(std::format("{}->{} [label=<{}>]", rule.startState(), rule.nextState(), rule.input()));
+        for (const auto& [input, nextState] : transform)
+        {
+            edges.push_back(std::format("{}->{} [label=<{}>]", startState, nextState, input));
+
+        }
     }
 
     std::string graphviz = "digraph G{\n";
