@@ -21,7 +21,9 @@ TEST_CASE("Test NFA2DFA", "[Test NFA2DFA]")
     NFA const nfa("q0", rules, acceptState);
 
     auto nfaGraphviz = nfa2graphviz::nfa2graphviz(nfa);
-    auto dfa = nfa2dfa::convertNFA2DFA(nfa);
+    auto originDfa = nfa2dfa::convertNFA2DFA(nfa);
+
+    auto dfa = originDfa.minimize();
 
     auto dfaGraphviz = dfa2graphviz::dfa2graphviz(dfa);
     const std::vector<std::pair<std::string, bool>> tests = {
